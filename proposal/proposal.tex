@@ -1,0 +1,157 @@
+\documentclass[a4paper]{article}
+
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+
+\usepackage{amsmath}
+\usepackage{bm}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage[margin=1in]{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage[bottom]{footmisc}
+
+\usepackage[
+  style=numeric-comp,sorting=none,
+  sortcites=true,doi=false,url=false,
+  giveninits=true,hyperref]{biblatex}
+\addbibresource{refs.bib}
+
+\begin{document}
+
+\title{Individual Project proposal: \\ Multi-accent Automatic Speech Recognition \\ on Mozilla Common Voice}
+\author{Dan Wells \\ s1462938 \\ Supervisor: Steve Renals}
+\date{29 January 2020}
+\maketitle
+
+%\begin{abstract}
+%  hello
+%\end{abstract}
+
+\section{Introduction}
+% 1. What are you trying to do? State the goal of your project using absolutely no jargon
+
+The aim of automatic speech recognition (ASR) is to produce text transcriptions corresponding to the linguistic content of input speech audio data.
+The many sources of variation in human speech make this a difficult task, such as the systematic differences in pronunciation of the same basic sound unit in different contexts (for example the sound at the beginning of the words \emph{key} and \emph{car}), or differences between speakers resulting from varying physical characteristics in the way they produce speech or their linguistic background.
+While much progress has been made in accounting for variability in speech sounds across different contexts and between speakers from similar linguistic backgrounds, making ASR systems robust to speech representing diverse accents remains a challenge.
+
+A significant cost in training ASR systems is the requirement for large amounts of transcribed speech data to provide reference examples for correspondence between input acoustics and output word sequences.
+Trying to account for other signals in speech data, such as speaker accent, may require additional labels to be provided, increasing the expense of gathering training examples.
+The Mozilla Common Voice\footnote{\url{https://voice.mozilla.org}} project provides a platform for crowdsourcing speech data collection and has made freely available labelled datasets for nearly 40 languages with tens or hundreds of hours of speech from hundreds of speakers, with data annotation including self-reported speaker accent \cite{ardila2019CommonVoiceMassivelyMultilingual}.
+The release of such a large and richly-annotated dataset with standard training and evaluation partitions presents an opportunity for researchers to explore methods for multi-accent ASR with a common point of comparison for the performance of their systems.
+
+In this project, we aim to establish a strong baseline for multi-accent ASR on the English portion of the most recent release of Common Voice, which has resolved some data integrity issues identified in early versions of the corpus.
+We will implement recent approaches to multi-accent modelling in a more traditional pipeline-based ASR system, with distinct components for mapping acoustics to sound symbols and predicting likely word sequences, using the Kaldi toolkit \cite{povey2011KaldiSpeechRecognition}.
+This will stand as preparation for future work using fully neural network-based ASR systems which implicitly learn to replicate the whole sequence of pipeline tasks within a single model.
+Our contribution will be necessary preparation and exploration of the Common Voice dataset and evaluation of its suitability for multi-accent ASR.
+We will also re-evaluate previous work on earlier releases of the dataset and apply more recent feature extraction methods which have until now only been tested on proprietary datasets.
+
+
+\section{Prior research}
+% 2. How is it done today, and what are the limits of current practice?
+
+Several methods have been used to try and account for accentual variation in a single ASR model, rather than training separate models for each target accent.
+The simplest approach involves pooling training data from all accents and training a model with a unified set of target output phones.
+Such accent-independent models can outperform accent-specific models in cases where little training data is available per accent \cite{kamper2012MultiaccentAcousticModelling}, but in high-resource settings accent-independent models are able to give better accuracy, albeit with increased model training costs.
+An alternative approach learns separate output layers for each target accent, which again might use the same set of output symbols for all accents as in \cite{chen2015ImprovingDeepNeural}, but which could also account for different phone inventories across accents \cite{yang2018JointModelingAccents}.
+
+Another set of solutions use multi-task learning to promote learning of more general feature representations via auxiliary output targets.
+In the case of acoustic modelling for multi-accent ASR, predicting phone labels from speech features would be considered the main task, with accent identification a common choice for the auxiliary task \cite{elfeky2016AcousticModelUnification, jain2018ImprovedAccentedSpeech, yang2018JointModelingAccents}.
+Such a setup requires the network to predict both phone and accent labels for each training example, thereby taking accent variability into account more explicitly during feature extraction.
+
+Accent information may also be included explicitly in model inputs during training, for example by appending a one-hot vector indexing the target accent to input acoustic features \cite{arsikere2019MultiDialectAcousticModeling}.
+This limits recognition to the set of accents seen during training, one of which must be specified at test time, although an additional dimension may also be added for \emph{`unknown'} accents as in \cite{yoo2019HighlyAdaptiveAcoustic}.
+This approach essentially conditions the network to learn a set of accent-specific biases, and may therefore (for large enough models) tend to partition feature space by accent rather than learning truly accent-invariant features which should allow for better generalisation across accents.
+
+Using continuous embeddings generated by a standalone accent identification network in place of one-hot input vectors could potentially mitigate the problem of dealing with unseen accents at test time, but it is important to consider the quality of those embeddings for new accents.
+For example, \cite{jain2018ImprovedAccentedSpeech} shows completely overlapping embeddings for two unseen test accents which might be considered quite phonetically distinct, namely New Zealand and Indian English.
+Recent work using generative adversarial networks to provide feature representations for ASR in \cite{chen2019AIPNetGenerativeAdversarial} appears to produce much more accent-invariant features, with mixed-accent clusters in the acoustic embeddings rather than the typical separation into clusters of known accents seen in approaches such as \cite{yoo2019HighlyAdaptiveAcoustic, jain2018ImprovedAccentedSpeech}.
+These features also seem to translate to improvements in speech recognition performance, although \cite{chen2019AIPNetGenerativeAdversarial} does not evaluate performance for unseen accents.
+% or is the semi-supervised part of the evaluation that?
+
+While previous work \cite{jain2018ImprovedAccentedSpeech, viglino2019EndtoEndAccentedSpeech} has reported results on Common Voice, these studies were based on early releases of the dataset which included large amounts of redundant data from multiple speakers recording identical prompts.
+This is cited as a possible reason for surprisingly low error rates for the data-hungry end-to-end neural network approach used in \cite{viglino2019EndtoEndAccentedSpeech}.
+Other approaches \cite{chen2019AIPNetGenerativeAdversarial} for multi-accent ASR have only been tested on proprietary datasets, with no open baseline available.
+
+
+\section{Proposed work}
+% 3. What's new in your approach, and why do you think it will be successful?
+% 4. Who cares?
+% 5. If you're successful, what difference will it make?
+% 6. What are the risks and payoffs?
+% 7. How much will it cost?
+% 8. How long will it take?
+% 9. What are the midterm and final exams to check for success?
+
+For this project, we propose to investigate the use of the Mozilla Common Voice corpus for multi-accent ASR.
+There are two main aspects to this study: data preparation for this new corpus and implementation and evaluation of multi-accent ASR models.
+
+We do not expect any additional monetary costs for this work, as the dataset is freely available and already includes relevant human annotation, computational requirements are consistent with existing infrastructure and system evaluation can be done automatically through calculation of word error rates.
+
+\subsection{Data preparation}
+
+%The redundant data issue was resolved in v2.0 of the corpus, released in March 2019, with every recorded sentence being unique across the released train, development and test splits.
+We will use the English portion of the Common Voice 4200h release compiled in December 2019\footnote{\url{https://discourse.mozilla.org/t/52013}}, which resolves the redundant data issue mentioned above.
+In this version of the corpus, the text of every recorded sentence is unique across the released train, development and test splits.
+It will be necessary to examine and prepare this data for use in model training, checking the suitability of provided train and evaluation splits for the various modelling tasks at hand and generating acoustic features and phonetic targets for all utterances.
+
+%A major success of the Common Voice project is the scale of data collection and annotation enabled by the crowdsourcing model.
+%This presents a difficulty, however, for validation of collected data, since manual review is itself a costly process.
+%The Common Voice team work around this by also having participants review the contributions of others:
+Both data recording and validation are crowdsourced in the Common Voice project, with contributors reviewing each other's utterances for suitability of inclusion in the corpus.
+A piece of audio is only included in the official train, development or test partitions if it has been confirmed by two out of three reviewers to match the wording of the associated transcript \cite{ardila2019CommonVoiceMassivelyMultilingual}.
+However, we should bear in mind that additional annotation, including accent labels, are self-reported and do not seem to go through such specific validation, although problematic data may be flagged through a separate channel.
+It may therefore be necessary to conduct some additional data sampling and review to check the quality of these labels.
+
+With the updated dataset compilation methods used for v2.0 of Common Voice to remove recordings of repeated text prompts from multiple speakers, there has apparently been a large reduction in the number of accent-labelled examples for certain accents in the official validation and test splits released with the dataset, especially for accents with smaller numbers of examples to begin with.
+For example, while \cite{jain2018ImprovedAccentedSpeech} reports 536 utterances from as many speakers in their New Zealand accent test partition, the most recent English test split only contains 13 examples with that accent label, from 7 speakers.
+We may therefore have to review the amount of data available in the standard partitions and suitability for our task evaluations.
+
+\subsection{Model building}
+
+We will begin by implementing a simple accent-independent baseline, learning a single model using all data available without using any accent supervision.
+We will then reimplement the multi-task approach used in \cite{jain2018ImprovedAccentedSpeech}, using a time-delay neural network (TDNN) \cite{peddinti2015TimeDelayNeural} for acoustic modelling and phone prediction with accent classification as an auxiliary task.
+Acoustic feature inputs to this model are augmented with i-vectors for speaker normalisation \cite{dehak2011FrontEndFactorAnalysis} and accent embedding features derived from a standalone accent classification network (distinct from the auxiliary accent classification network), both of which will also need to be learned from Common Voice data.
+
+Working in a Kaldi pipeline-style setup also requires a separate language modelling component to predict likely word sequences in conjunction with likely observed acoustic sequences.
+The language model can be estimated from the training transcripts in the corpus, or may be augmented with additional data from a similar domain, such as English Wikipedia text, from which Common Voice recording prompts are derived.
+
+Additionally, we intend to re-evaluate the accent embeddings produced by the accent classification network in \cite{jain2018ImprovedAccentedSpeech}, especially their ability to model unseen accents.
+The results of this analysis could motivate additional investigation of new feature generation methods such as \cite{chen2019AIPNetGenerativeAdversarial} for this task.
+
+The work in \cite{viglino2019EndtoEndAccentedSpeech} builds on \cite{jain2018ImprovedAccentedSpeech} by comparing results to a fully neural end-to-end system; a similar study is planned to be undertaken at a later date by other researchers in the Centre for Speech Technology Research,\footnote{\url{http://www.cstr.ed.ac.uk/}} University of Edinburgh.
+
+%\subsection{Costs}
+%server time?
+
+\subsection{Project outcomes}
+In summary, expected project outcomes are as follows:
+
+\begin{itemize}
+  \item Full description and feature parameterisation of the Mozilla Common Voice dataset available for other researchers.
+  \item Pre-trained Kaldi models for this dataset, with pooled English data and multi-task accent model.
+  \item Baseline results in preparation for further work on Common Voice using end-to-end neural methods.
+  \item Analysis of accent embedding methods, especially for accents unseen during training.
+\end{itemize}
+
+These outputs will provide a solid foundation for future research in multi-accent ASR, and a shared baseline dataset for more direct comparison of results from competing systems in future.
+
+
+\subsection{Timeline}
+
+\begin{description}
+  \item [Weeks 1--2] Data description, producing acoustic features.
+  \item [Weeks 3--4:] Extracting i-vectors, train baseline accent-independent ASR model.
+  \item [Mid-project evaluation:] Comparison of baseline accent-independent model performance against results reported in \cite{jain2018ImprovedAccentedSpeech} on previous version of Common Voice.
+  \item [Weeks 5--7:] Train accent classification system and multi-task, multi-accent ASR model.
+  \item [Week 8:] Analysis of accent embeddings.
+  \item [Week 9--10:] Possible implementation of adversarial feature generation \cite{chen2019AIPNetGenerativeAdversarial}.
+  \item [Final evaluation:] Multi-accent ASR results comparable to \cite{jain2018ImprovedAccentedSpeech}, make processed Common Voice corpus available with analysis of suitability for this task.
+\end{description}
+
+
+\printbibliography
+
+\end{document}

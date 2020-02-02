@@ -1,0 +1,6 @@
+metadata/train.tsv filter=lfs diff=lfs merge=lfs -text
+metadata/validated.tsv filter=lfs diff=lfs merge=lfs -text
+metadata/dev.tsv filter=lfs diff=lfs merge=lfs -text
+metadata/invalidated.tsv filter=lfs diff=lfs merge=lfs -text
+metadata/other.tsv filter=lfs diff=lfs merge=lfs -text
+metadata/test.tsv filter=lfs diff=lfs merge=lfs -text
