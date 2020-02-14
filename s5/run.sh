@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# Recipe for Mozilla Common Voice corpus v1
+# Recipe for Mozilla Common Voice corpus v2
 #
 # Copyright 2017   Ewald Enzinger
+# Copyright 2020   Dan Wells
 # Apache 2.0
 
-data=$HOME/cv_corpus_v1
-data_url=https://common-voice-data-download.s3.amazonaws.com/cv_corpus_v1.tar.gz
+data=/mnt/data/common_voice_en_1488h_20191210
+data_url=https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz
 
 . ./cmd.sh
 . ./path.sh
@@ -23,10 +24,14 @@ if [ $stage -le 0 ]; then
   local/download_and_untar.sh $(dirname $data) $data_url
 fi
 
+# Select only utterances with accent labels and resample data
 if [ $stage -le 1 ]; then
-  for part in valid-train valid-dev valid-test; do
-    # use underscore-separated names in data directories.
-    local/data_prep.pl $data cv-$part data/$(echo $part | tr - _)
+  local/prep_accent_corpus.sh $data
+fi
+
+if [ $stage -le 2 ]; then
+  for part in train dev test; do
+    local/data_prep.pl $data $part data/$part
   done
   
   # Prepare ARPA LM and vocabulary using SRILM
@@ -42,7 +47,7 @@ if [ $stage -le 1 ]; then
   utils/format_lm.sh data/lang data/local/lm.gz data/local/dict/lexicon.txt data/lang_test/
 fi
 
-if [ $stage -le 2 ]; then
+if [ $stage -le 3 ]; then
   mfccdir=mfcc
   # spread the mfccs over various machines, as this data-set is quite large.
   if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
@@ -63,7 +68,7 @@ if [ $stage -le 2 ]; then
 fi
 
 # train a monophone system
-if [ $stage -le 3 ]; then
+if [ $stage -le 4 ]; then
   steps/train_mono.sh --boost-silence 1.25 --nj 20 --cmd "$train_cmd" \
     data/train_10kshort data/lang exp/mono || exit 1;
   (
@@ -78,7 +83,7 @@ if [ $stage -le 3 ]; then
 fi
 
 # train a first delta + delta-delta triphone system
-if [ $stage -le 4 ]; then
+if [ $stage -le 5 ]; then
   steps/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
     2000 10000 data/train_20k data/lang exp/mono_ali_train_20k exp/tri1
 
@@ -96,7 +101,7 @@ if [ $stage -le 4 ]; then
 fi
 
 # train an LDA+MLLT system.
-if [ $stage -le 5 ]; then
+if [ $stage -le 6 ]; then
   steps/train_lda_mllt.sh --cmd "$train_cmd" \
     --splice-opts "--left-context=3 --right-context=3" 2500 15000 \
     data/train_20k data/lang exp/tri1_ali_train_20k exp/tri2b
@@ -116,7 +121,7 @@ if [ $stage -le 5 ]; then
 fi
 
 # Train tri3b, which is LDA+MLLT+SAT
-if [ $stage -le 6 ]; then
+if [ $stage -le 7 ]; then
   steps/train_sat.sh --cmd "$train_cmd" 2500 15000 \
     data/train_20k data/lang exp/tri2b_ali_train_20k exp/tri3b
 
@@ -130,7 +135,7 @@ if [ $stage -le 6 ]; then
   )&
 fi
 
-if [ $stage -le 7 ]; then
+if [ $stage -le 8 ]; then
   # Align utts in the full training set using the tri3b model
   steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
     data/valid_train data/lang \
@@ -153,7 +158,7 @@ if [ $stage -le 7 ]; then
 fi
 
 # Train a chain model
-if [ $stage -le 8 ]; then
+if [ $stage -le 9 ]; then
   local/chain/run_tdnn.sh --stage 0
 fi
 

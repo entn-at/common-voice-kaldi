@@ -3,6 +3,7 @@
 # Copyright   2014  Johns Hopkins University (author: Daniel Povey)
 #             2017  Luminar Technologies, Inc. (author: Daniel Galvez)
 #             2017  Ewald Enzinger
+#             2020  Dan Wells
 # Apache 2.0
 
 # Adapted from egs/mini_librispeech/s5/local/download_and_untar.sh (commit 1cd6d2ac3a935009fdc4184cb8a72ddad98fe7d9)
@@ -16,7 +17,8 @@ fi
 
 if [ $# -ne 2 ]; then
   echo "Usage: $0 [--remove-archive] <data-base> <url>"
-  echo "e.g.: $0 /export/data/ https://common-voice-data-download.s3.amazonaws.com/cv_corpus_v1.tar.gz"
+  echo "e.g.: $0 /export/data/ https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz"
+  echo "Downloads and extracts 1488h English portion of Common Voice release 2019-12-10 to <data-base>/cv_en_1488h_20191210/"
   echo "With --remove-archive it will remove the archive after successfully un-tarring it."
 fi
 
@@ -33,13 +35,13 @@ if [ -z "$url" ]; then
   exit 1;
 fi
 
-if [ -f $data/cv_corpus_v1/.complete ]; then
+if [ -f $data/cv_en_1488h_20191210/.complete ]; then
   echo "$0: data was already successfully extracted, nothing to do."
   exit 0;
 fi
 
-filepath="$data/cv_corpus_v1.tar.gz"
-filesize="12852160484"
+filepath="$data/en.tar.gz"
+filesize="41448227462"
 
 if [ -f $filepath ]; then
   size=$(/bin/ls -l $filepath | awk '{print $5}')
@@ -70,12 +72,14 @@ fi
 
 cd $data
 
-if ! tar -xzf $filepath; then
+mkdir cv_en_1488h_20191210
+echo "$0: un-tarring downloaded data.  This may take some time, please be patient."
+if ! tar -xzf $filepath -C cv_en_1488h_20191210; then
   echo "$0: error un-tarring archive $filepath"
   exit 1;
 fi
 
-touch $data/cv_corpus_v1/.complete
+touch $data/cv_en_1488h_20191210/.complete
 
 echo "$0: Successfully downloaded and un-tarred $filepath"
 
