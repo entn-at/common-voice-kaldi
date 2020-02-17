@@ -35,7 +35,7 @@ if [ $stage -le 2 ]; then
   done
   
   # Prepare ARPA LM and vocabulary using SRILM
-  local/prepare_lm.sh data/valid_train
+  local/prepare_lm.sh data/train
   # Prepare the lexicon and various phone lists
   # Pronunciations for OOV words are obtained using a pre-trained Sequitur model
   local/prepare_dict.sh
@@ -50,21 +50,21 @@ fi
 if [ $stage -le 3 ]; then
   mfccdir=mfcc
   # spread the mfccs over various machines, as this data-set is quite large.
-  if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
-    mfcc=$(basename mfccdir) # in case was absolute pathname (unlikely), get basename.
-    utils/create_split_dir.pl /export/b{07,14,16,17}/$USER/kaldi-data/mfcc/commonvoice/s5/$mfcc/storage \
-      $mfccdir/storage
-  fi
+  #if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
+  #  mfcc=$(basename mfccdir) # in case was absolute pathname (unlikely), get basename.
+  #  utils/create_split_dir.pl /export/b{07,14,16,17}/$USER/kaldi-data/mfcc/commonvoice/s5/$mfcc/storage \
+  #    $mfccdir/storage
+  #fi
 
-  for part in valid_train valid_dev valid_test; do
-    steps/make_mfcc.sh --cmd "$train_cmd" --nj 20 data/$part exp/make_mfcc/$part $mfccdir
+  for part in train dev test; do
+    steps/make_mfcc.sh --cmd "$train_cmd" --nj 8 data/$part exp/make_mfcc/$part $mfccdir
     steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
   done
 
   # Get the shortest 10000 utterances first because those are more likely
   # to have accurate alignments.
-  utils/subset_data_dir.sh --shortest data/valid_train 10000 data/train_10kshort || exit 1;
-  utils/subset_data_dir.sh data/valid_train 20000 data/train_20k || exit 1;
+  utils/subset_data_dir.sh --shortest data/train 10000 data/train_10kshort || exit 1;
+  utils/subset_data_dir.sh data/train 20000 data/train_20k || exit 1;
 fi
 
 # train a monophone system
@@ -73,11 +73,14 @@ if [ $stage -le 4 ]; then
     data/train_10kshort data/lang exp/mono || exit 1;
   (
     utils/mkgraph.sh data/lang_test exp/mono exp/mono/graph
-    for testset in valid_dev; do
+    for testset in dev; do
       steps/decode.sh --nj 20 --cmd "$decode_cmd" exp/mono/graph \
         data/$testset exp/mono/decode_$testset
     done
   )&
+  # TODO: ** split_data.sh: warning, #lines is (utt2spk,feats.scp) is (20000,19998); you can
+  # **  use utils/fix_data_dir.sh data/train_20k to fix this.
+  # => empty audio files?
   steps/align_si.sh --boost-silence 1.25 --nj 10 --cmd "$train_cmd" \
     data/train_20k data/lang exp/mono exp/mono_ali_train_20k
 fi
@@ -90,7 +93,7 @@ if [ $stage -le 5 ]; then
   # decode using the tri1 model
   (
     utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph
-    for testset in valid_dev; do
+    for testset in dev; do
       steps/decode.sh --nj 20 --cmd "$decode_cmd" exp/tri1/graph \
         data/$testset exp/tri1/decode_$testset
     done
@@ -109,7 +112,7 @@ if [ $stage -le 6 ]; then
   # decode using the LDA+MLLT model
   utils/mkgraph.sh data/lang_test exp/tri2b exp/tri2b/graph
   (
-    for testset in valid_dev; do
+    for testset in dev; do
       steps/decode.sh --nj 20 --cmd "$decode_cmd" exp/tri2b/graph \
         data/$testset exp/tri2b/decode_$testset
     done
@@ -128,7 +131,7 @@ if [ $stage -le 7 ]; then
   # decode using the tri3b model
   (
     utils/mkgraph.sh data/lang_test exp/tri3b exp/tri3b/graph
-    for testset in valid_dev; do
+    for testset in dev; do
       steps/decode_fmllr.sh --nj 10 --cmd "$decode_cmd" \
         exp/tri3b/graph data/$testset exp/tri3b/decode_$testset
     done
@@ -138,18 +141,18 @@ fi
 if [ $stage -le 8 ]; then
   # Align utts in the full training set using the tri3b model
   steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
-    data/valid_train data/lang \
-    exp/tri3b exp/tri3b_ali_valid_train
+    data/train data/lang \
+    exp/tri3b exp/tri3b_ali_train
 
   # train another LDA+MLLT+SAT system on the entire training set
   steps/train_sat.sh  --cmd "$train_cmd" 4200 40000 \
-    data/valid_train data/lang \
-    exp/tri3b_ali_valid_train exp/tri4b
+    data/train data/lang \
+    exp/tri3b_ali_train exp/tri4b
 
   # decode using the tri4b model
   (
     utils/mkgraph.sh data/lang_test exp/tri4b exp/tri4b/graph
-    for testset in valid_dev; do
+    for testset in dev; do
       steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
         exp/tri4b/graph data/$testset \
         exp/tri4b/decode_$testset
