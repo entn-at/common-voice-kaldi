@@ -10,7 +10,7 @@
 
 echo "=== Building a language model ..."
 
-data=data/valid_train
+data=$1
 locdata=data/local
 # Language model order
 order=3

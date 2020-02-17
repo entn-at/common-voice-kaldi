@@ -23,7 +23,8 @@ fi
 echo "--- Striping stress and pronunciation variant markers from cmudict ..."
 perl $locdict/cmudict/scripts/make_baseform.pl \
   $locdict/cmudict/cmudict.0.7a /dev/stdout |\
-  sed -e 's:^\([^\s(]\+\)([0-9]\+)\(\s\+\)\(.*\):\1\2\3:' | tr '[A-Z]' '[a-z]' > $locdict/cmudict-plain.txt
+  #sed -e 's:^\([^\s(]\+\)([0-9]\+)\(\s\+\)\(.*\):\1\2\3:' | tr '[A-Z]' '[a-z]' > $locdict/cmudict-plain.txt
+  sed -e 's:^\([^\s(]\+\)([0-9]\+)\(\s\+\)\(.*\):\1\2\3:' > $locdict/cmudict-plain.txt
 
 echo "--- Searching for OOV words ..."
 awk 'NR==FNR{words[$1]; next;} !($1 in words)' \
@@ -63,6 +64,7 @@ if ! g2p=`which g2p.py` ; then
 fi
 
 echo "--- Preparing pronunciations for OOV words ..."
+# TODO: 192 words still OOV, check the junk (seems mostly foreign words)
 g2p.py --model=conf/g2p_model --apply $locdict/vocab-oov.txt > $locdict/lexicon-oov.txt
 
 cat $locdict/lexicon-oov.txt $locdict/lexicon-iv.txt |\
