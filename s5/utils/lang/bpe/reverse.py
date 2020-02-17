@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # This script, reverse all latin and digits sequences

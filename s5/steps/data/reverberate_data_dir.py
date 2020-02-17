@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 # Copyright 2016  Tom Ko
 #           2018  David Snyder
 #           2019  Phani Sankar Nidadavolu

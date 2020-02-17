@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 
 # This script dumps the parameters of (most components of) an nnet3 model as a
 # pickled python dict.  (see documentation for the function 'read_model' below

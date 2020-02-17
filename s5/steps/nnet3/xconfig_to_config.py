@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 
 # Copyright 2016-2018    Johns Hopkins University (Dan Povey)
 #           2016    Vijayaditya Peddinti

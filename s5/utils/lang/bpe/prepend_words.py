@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 
 # This script, prepend '|' to every words in the transcript to mark
 # the beginning of the words for finding the initial-space of every word

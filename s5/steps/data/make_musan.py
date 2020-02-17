@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 # Copyright 2015   David Snyder
 #           2019   Phani Sankar Nidadavolu
 # Apache 2.0.

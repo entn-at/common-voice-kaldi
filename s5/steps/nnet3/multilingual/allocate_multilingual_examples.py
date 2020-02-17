@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 
 # Copyright      2017 Pegah Ghahremani
 #                2018 Hossein Hadian

@@ -1,4 +1,4 @@
-#!/usr/bin/env python23
+#!/usr/bin/env python3
 
 # Copyright 2016  Johns Hopkins University (Author: Daniel Povey)
 # Apache 2.0.
