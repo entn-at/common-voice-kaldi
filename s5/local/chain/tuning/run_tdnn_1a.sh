@@ -17,8 +17,8 @@ set -euo pipefail
 # (some of which are also used in this script directly).
 stage=0
 decode_nj=10
-train_set=valid_train
-test_sets="valid_dev valid_test"
+train_set=train
+test_sets="dev test"
 gmm=tri4b
 nnet3_affix=
 

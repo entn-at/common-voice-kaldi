@@ -65,14 +65,14 @@ for x in $*; do   printf "% 10s" " $(basename $x)";   done
 echo
 
 strings=(
-  "#WER valid_dev "
-  "#WER valid_test ")
+  "#WER dev "
+  "#WER test ")
 
 for n in 0 1; do
    echo -n "${strings[$n]}"
    for x in $*; do
      set_names $x  # sets $dirname and $epoch_infix
-    decode_names=(valid_dev valid_test)
+    decode_names=(dev test)
 
      wer=$(cat $dirname/decode_${decode_names[$n]}/wer_* | utils/best_wer.sh | awk '{print $2}')
      printf "% 10s" $wer

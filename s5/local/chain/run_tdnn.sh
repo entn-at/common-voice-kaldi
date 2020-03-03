@@ -17,8 +17,8 @@ set -euo pipefail
 # (some of which are also used in this script directly).
 stage=0
 decode_nj=10
-train_set=valid_train
-test_sets="valid_dev valid_test"
+train_set=train
+test_sets="dev test"
 gmm=tri4b
 nnet3_affix=
 
@@ -184,10 +184,10 @@ fi
 
 
 if [ $stage -le 14 ]; then
-  if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $dir/egs/storage ]; then
-    utils/create_split_dir.pl \
-     /export/b0{3,4,5,6}/$USER/kaldi-data/egs/commonvoice-$(date +'%m_%d_%H_%M')/s5/$dir/egs/storage $dir/egs/storage
-  fi
+  #if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $dir/egs/storage ]; then
+  #  utils/create_split_dir.pl \
+  #   /export/b0{3,4,5,6}/$USER/kaldi-data/egs/commonvoice-$(date +'%m_%d_%H_%M')/s5/$dir/egs/storage $dir/egs/storage
+  #fi
 
   steps/nnet3/chain/train.py --stage=$train_stage \
     --cmd="$decode_cmd" \
@@ -217,7 +217,7 @@ if [ $stage -le 14 ]; then
     --egs.dir="$common_egs_dir" \
     --egs.opts="--frames-overlap-per-eg 0" \
     --cleanup.remove-egs=$remove_egs \
-    --use-gpu=true \
+    --use-gpu=wait \
     --reporting.email="$reporting_email" \
     --feat-dir=$train_data_dir \
     --tree-dir=$tree_dir \
