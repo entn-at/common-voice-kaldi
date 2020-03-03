@@ -18,7 +18,7 @@ fi
 if [ $# -ne 2 ]; then
   echo "Usage: $0 [--remove-archive] <data-base> <url>"
   echo "e.g.: $0 /export/data/ https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz"
-  echo "Downloads and extracts 1488h English portion of Common Voice release 2019-12-10 to <data-base>/cv_en_1488h_20191210/"
+  echo "Downloads and extracts 1488h English portion of Common Voice release 2019-12-10 to <data-base>"
   echo "With --remove-archive it will remove the archive after successfully un-tarring it."
 fi
 
@@ -35,7 +35,7 @@ if [ -z "$url" ]; then
   exit 1;
 fi
 
-if [ -f $data/cv_en_1488h_20191210/.complete ]; then
+if [ -f $data/.complete ]; then
   echo "$0: data was already successfully extracted, nothing to do."
   exit 0;
 fi
@@ -72,14 +72,13 @@ fi
 
 cd $data
 
-mkdir cv_en_1488h_20191210
 echo "$0: un-tarring downloaded data.  This may take some time, please be patient."
-if ! tar -xzf $filepath -C cv_en_1488h_20191210; then
+if ! tar -xzf $filepath; then
   echo "$0: error un-tarring archive $filepath"
   exit 1;
 fi
 
-touch $data/cv_en_1488h_20191210/.complete
+touch $data/.complete
 
 echo "$0: Successfully downloaded and un-tarred $filepath"
 
