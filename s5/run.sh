@@ -30,7 +30,11 @@ if [ $stage -le 1 ]; then
     local/prep_accent_corpus.sh $data
   fi
   # clean punctuation, normalise case, remove empty audios/transcripts
-  local/clean_corpus.py
+  mkdir -p $data/accent_meta
+  mv $data/*.tsv $data/accent_meta
+  for part in train dev test; do
+    local/clean_corpus.py --meta $data/accent_meta/${part}.tsv --clean $data/${part}.tsv
+  done
 fi
 
 if [ $stage -le 2 ]; then

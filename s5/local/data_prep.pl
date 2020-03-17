@@ -38,26 +38,6 @@ while(<TSV>) {
   $uttId = "$client_id-$filepath";
   $uttId =~ s/\.mp3//g;
   $uttId =~ tr/\//-/;
-  # quick hacks to remove extra punctuation and reduce OOVs
-  # TODO: pick best course for actual tokenisation and cleaning, if necessary
-  $text =~ s/\x93/ /g; # en-dash
-  $text =~ s/\x94/ /g; # em-dash
-  $text =~ s/["“”]//g;
-  $text =~ s/[`‘’]/'/g;
-  $text =~ s/^'(?=\w)//g;
-  $text =~ s/'(?=\W)//g;
-  $text =~ s/ '/ /g;
-  $text =~ s/(---?| - | -\b|\.\.\.)/ /g;
-  $text =~ s/(?<=(?:\w| ))\.//g;
-  $text =~ s/(?<=\w)\.(?=\w)/ /g;
-  $text =~ s/\((?=\w)//g;
-  $text =~ s/(?<=\w)[,.?!;:)]//g;
-  $text =~ s/\.$//g;
-  $text =~ s/\!$//g;
-  $text =~ s/'$//g;
-  # Uppercase all transcripts (needed for sequitur g2p to work)
-  $text =~ tr/a-z/A-Z/;
-  #$text =~ tr/A-Z/a-z/;
   print TEXT "$uttId"," ","$text","\n";
   print GNDR "$uttId"," ","$gender","\n";
   # This will be read as a Kaldi pipe to downsample audio

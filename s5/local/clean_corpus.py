@@ -9,7 +9,7 @@ import string
 from unicodedata import normalize
 
 
-def clean_lines(meta, clean, durs=None):
+def clean_lines(meta, clean):
     # normalize apostrophes, some we will keep
     fix_apos = str.maketrans("`‘’", "'''")
     # anything else we convert to space, and will squash multiples later
@@ -29,8 +29,6 @@ def clean_lines(meta, clean, durs=None):
     with open(meta) as inf, open(clean, 'w') as outf:
         inf_reader = csv.DictReader(inf, delimiter='\t')
         fn = inf_reader.fieldnames
-        if durs is not None:
-            fn = fn + ["durs"]
         outf_writer = csv.DictWriter(outf, fieldnames=fn, delimiter="\t")
         outf_writer.writeheader()
         for row in inf_reader:
@@ -55,8 +53,6 @@ if __name__ == "__main__":
             help="Metadata file in TSV format with raw transcriptions")
     parser.add_argument("--clean", type=str, required=True,
             help="Output file for cleaned metadata")
-    parser.add_argument("--durs", type=str, required=False, default=None,
-            help="File with duration information for each line in metadata")
     args = parser.parse_args()
-    clean_lines(args.meta, args.clean, args.durs)
+    clean_lines(args.meta, args.clean)
 

@@ -34,7 +34,7 @@ NR==1 {
     print $0, "locale", "bucket"
 }
 # Skip rows with no or accent label "other"
-NR>1 && $8!="" && $8!="other" {
+NR>1 && $8!="" && $8!="other" && $3!="" {
     print $0, "en", ""
 }' orig_meta/{validated.tsv,invalidated.tsv,other.tsv} > clips.tsv
 
