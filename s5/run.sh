@@ -8,6 +8,7 @@
 
 data=/mnt/data/common_voice_en_1488h_20191210
 data_url=https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz
+accent_only=true
 
 . ./cmd.sh
 . ./path.sh
@@ -23,12 +24,17 @@ if [ $stage -le 0 ]; then
   local/download_and_untar.sh $data $data_url
 fi
 
-# Select only utterances with accent labels and resample data
 if [ $stage -le 1 ]; then
-  local/prep_accent_corpus.sh $data
+  # Select only utterances with accent labels and resample data
+  if [ $accent_only = true ]; then
+    local/prep_accent_corpus.sh $data
+  fi
+  # clean punctuation, normalise case, remove empty audios/transcripts
+  local/clean_corpus.py
 fi
 
 if [ $stage -le 2 ]; then
+  # generate kaldi data files
   for part in train dev test; do
     local/data_prep.pl $data $part $data/$part
   done
