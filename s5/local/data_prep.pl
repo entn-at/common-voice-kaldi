@@ -24,8 +24,10 @@ my $header = <TSV>;
 while(<TSV>) {
   chomp;
   ($client_id, $filepath, $text, $upvotes, $downvotes, $age, $gender, $accent) = split("\t", $_);
+  # TODO: these are empty files, ideally should exclude before sampling data
+  next if $filepath =~ /common_voice_en_194119(6[5-8]|7[4-8]|8[4-9]|9[02])\.mp3/;
   # TODO: gender information is probably not used anywhere?
-  if ("$gender" eq "female") {
+  if ($gender eq "female") {
     $gender = "f";
   } else {
     # Use male as default if not provided (no reason, just adopting the same default as in voxforge)
@@ -46,7 +48,7 @@ while(<TSV>) {
 }
 close(SPKR) || die;
 close(TEXT) || die;
-close(WAV) || die;
+close(WAV)  || die;
 close(GNDR) || die;
 close(WAVLIST);
 
