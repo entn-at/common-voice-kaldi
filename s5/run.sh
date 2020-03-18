@@ -10,6 +10,7 @@ data=/mnt/data/common_voice_en_1488h_20191210
 data_url=https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz
 accent_only=true
 bg_decode=false
+use_gpu=false
 
 . ./cmd.sh
 . ./path.sh
@@ -51,8 +52,7 @@ if [ $stage -le 2 ]; then
   local/prepare_dict.sh
 
   # Prepare data/lang and data/local/lang directories
-  utils/prepare_lang.sh data/local/dict \
-    '<unk>' data/local/lang data/lang || exit 1
+  utils/prepare_lang.sh data/local/dict '<unk>' data/local/lang data/lang
 
   utils/format_lm.sh data/lang data/local/lm.gz data/local/dict/lexicon.txt data/lang_test/
 fi
@@ -73,14 +73,14 @@ if [ $stage -le 3 ]; then
 
   # Get the shortest 10000 utterances first because those are more likely
   # to have accurate alignments.
-  utils/subset_data_dir.sh --shortest data/train 10000 data/train_10kshort || exit 1;
-  utils/subset_data_dir.sh data/train 20000 data/train_20k || exit 1;
+  utils/subset_data_dir.sh --shortest data/train 10000 data/train_10kshort
+  utils/subset_data_dir.sh data/train 20000 data/train_20k
 fi
 
 # train a monophone system
 if [ $stage -le 4 ]; then
   steps/train_mono.sh --boost-silence 1.25 --nj 16 --cmd "$train_cmd" \
-    data/train_10kshort data/lang exp/mono || exit 1;
+    data/train_10kshort data/lang exp/mono
 
   # decode using the mono model
   if [ $bg_decode = true ]; then
@@ -179,9 +179,21 @@ if [ $stage -le 8 ]; then
   )&
 fi
 
-# Train a chain model
+# Train and extract i-vectors
 if [ $stage -le 9 ]; then
-  local/chain/run_tdnn.sh --stage 0
+  nnet3_affix=""
+  local/nnet3/run_ivector_common.sh --stage 0 \
+    --train-set train --gmm tri4b --nnet3-affix "$nnet3_affix"
+fi
+
+# Train a chain model
+if [ $stage -le 10 ]; then
+  if [ $use_gpu = true ]; then
+    local/chain/run_tdnn.sh --stage 0
+  else
+    echo "Not expecting to have GPU resources available (use_gpu=$use_gpu)."
+    echo "Finishing without training final chain model."
+  fi
 fi
 
 # Don't finish until all background decoding jobs are finished.
