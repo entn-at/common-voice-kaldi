@@ -16,7 +16,7 @@ set -euo pipefail
 # First the options that are passed through to run_ivector_common.sh
 # (some of which are also used in this script directly).
 stage=0
-decode_nj=10
+decode_nj=8
 train_set=train
 test_sets="dev test"
 gmm=tri4b
@@ -64,7 +64,7 @@ EOF
 fi
 
 # The iVector-extraction and feature-dumping parts are the same as the standard
-# nnet3 setup, and you can skip them by setting "--stage 11" if you have already
+# nnet3 setup, and you can skip them by setting "--stage 7" if you have already
 # run those things.
 local/nnet3/run_ivector_common.sh --stage $stage \
                                   --train-set $train_set \
@@ -114,7 +114,7 @@ fi
 if [ $stage -le 11 ]; then
   # Get the alignments as lattices (gives the chain training more freedom).
   # use the same num-jobs as the alignments
-  steps/align_fmllr_lats.sh --nj 75 --cmd "$train_cmd" ${lores_train_data_dir} \
+  steps/align_fmllr_lats.sh --nj 32 --cmd "$train_cmd" ${lores_train_data_dir} \
     data/lang $gmm_dir $lat_dir
   rm $lat_dir/fsts.*.gz # save space
 fi

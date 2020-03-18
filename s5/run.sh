@@ -21,8 +21,7 @@ set -euo pipefail
 
 if [ $stage -le 0 ]; then
   mkdir -p $data
-
-  local/download_and_untar.sh $(dirname $data) $data_url
+  local/download_and_untar.sh $data $data_url
 fi
 
 if [ $stage -le 1 ]; then
@@ -67,7 +66,7 @@ if [ $stage -le 3 ]; then
   #fi
 
   for part in train dev test; do
-    steps/make_mfcc.sh --cmd "$train_cmd" --nj 8 data/$part exp/make_mfcc/$part $mfccdir
+    steps/make_mfcc.sh --cmd "$train_cmd" --nj 16 data/$part exp/make_mfcc/$part $mfccdir
     steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
   done
 
@@ -79,19 +78,16 @@ fi
 
 # train a monophone system
 if [ $stage -le 4 ]; then
-  steps/train_mono.sh --boost-silence 1.25 --nj 20 --cmd "$train_cmd" \
+  steps/train_mono.sh --boost-silence 1.25 --nj 16 --cmd "$train_cmd" \
     data/train_10kshort data/lang exp/mono || exit 1;
   (
     utils/mkgraph.sh data/lang_test exp/mono exp/mono/graph
     for testset in dev; do
-      steps/decode.sh --nj 20 --cmd "$decode_cmd" exp/mono/graph \
+      steps/decode.sh --nj 16 --cmd "$decode_cmd" exp/mono/graph \
         data/$testset exp/mono/decode_$testset
     done
   )&
-  # TODO: ** split_data.sh: warning, #lines is (utt2spk,feats.scp) is (20000,19998); you can
-  # **  use utils/fix_data_dir.sh data/train_20k to fix this.
-  # => empty audio files?
-  steps/align_si.sh --boost-silence 1.25 --nj 10 --cmd "$train_cmd" \
+  steps/align_si.sh --boost-silence 1.25 --nj 8 --cmd "$train_cmd" \
     data/train_20k data/lang exp/mono exp/mono_ali_train_20k
 fi
 
@@ -104,12 +100,12 @@ if [ $stage -le 5 ]; then
   (
     utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph
     for testset in dev; do
-      steps/decode.sh --nj 20 --cmd "$decode_cmd" exp/tri1/graph \
+      steps/decode.sh --nj 8 --cmd "$decode_cmd" exp/tri1/graph \
         data/$testset exp/tri1/decode_$testset
     done
   )&
 
-  steps/align_si.sh --nj 10 --cmd "$train_cmd" \
+  steps/align_si.sh --nj 8 --cmd "$train_cmd" \
     data/train_20k data/lang exp/tri1 exp/tri1_ali_train_20k
 fi
 
@@ -120,16 +116,16 @@ if [ $stage -le 6 ]; then
     data/train_20k data/lang exp/tri1_ali_train_20k exp/tri2b
 
   # decode using the LDA+MLLT model
-  utils/mkgraph.sh data/lang_test exp/tri2b exp/tri2b/graph
   (
+    utils/mkgraph.sh data/lang_test exp/tri2b exp/tri2b/graph
     for testset in dev; do
-      steps/decode.sh --nj 20 --cmd "$decode_cmd" exp/tri2b/graph \
+      steps/decode.sh --nj 8 --cmd "$decode_cmd" exp/tri2b/graph \
         data/$testset exp/tri2b/decode_$testset
     done
   )&
 
   # Align utts using the tri2b model
-  steps/align_si.sh --nj 10 --cmd "$train_cmd" --use-graphs true \
+  steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
     data/train_20k data/lang exp/tri2b exp/tri2b_ali_train_20k
 fi
 
@@ -142,7 +138,7 @@ if [ $stage -le 7 ]; then
   (
     utils/mkgraph.sh data/lang_test exp/tri3b exp/tri3b/graph
     for testset in dev; do
-      steps/decode_fmllr.sh --nj 10 --cmd "$decode_cmd" \
+      steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
         exp/tri3b/graph data/$testset exp/tri3b/decode_$testset
     done
   )&
@@ -150,7 +146,7 @@ fi
 
 if [ $stage -le 8 ]; then
   # Align utts in the full training set using the tri3b model
-  steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+  steps/align_fmllr.sh --nj 16 --cmd "$train_cmd" \
     data/train data/lang \
     exp/tri3b exp/tri3b_ali_train
 
@@ -163,7 +159,7 @@ if [ $stage -le 8 ]; then
   (
     utils/mkgraph.sh data/lang_test exp/tri4b exp/tri4b/graph
     for testset in dev; do
-      steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
+      steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
         exp/tri4b/graph data/$testset \
         exp/tri4b/decode_$testset
     done
