@@ -1,7 +1,11 @@
 #!/bin/bash
-data=$1
+language=$1
+source_dir=$2
+out_dir=$3
 
 set -euo pipefail
+
+mkdir -p $out_dir
 
 if [ ! $(which create-corpora) ]; then
   echo "$0: Mozilla CorporaCreator tool not installed. Get it here to prepare" 
@@ -12,16 +16,8 @@ fi
 # We must repurpose existing metadata files to recreate clips.tsv file
 # dumped from Common Voice database expected by CorporaCreator.
 
-cd $data
-
-if [ ! -d orig_meta ]; then
-  echo "$0: moving original metadata files to $data/orig_meta"
-  mkdir orig_meta
-  mv *.tsv orig_meta
-fi
-
 echo "$0: creating clips.tsv containing only accent-labelled utterances"
-awk 'BEGIN {
+awk -v lang="$language" 'BEGIN {
   FS="\t";
   OFS="\t";
 }
@@ -35,12 +31,9 @@ NR==1 {
 }
 # Skip rows with no or accent label "other", or blank transcription
 NR>1 && $8!="" && $8!="other" && $3!="" {
-    print $0, "en", ""
-}' orig_meta/{validated.tsv,invalidated.tsv,other.tsv} > clips.tsv
+    print $0, lang, ""
+}' $source_dir/{validated.tsv,invalidated.tsv,other.tsv} > $source_dir/clips.tsv
 
 echo "$0: preparing train-dev-test partitions using CorporaCreator"
-create-corpora -d $data -f clips.tsv
-
-mv en/*tsv .
-rmdir en
+create-corpora -d $out_dir -f $source_dir/clips.tsv
 

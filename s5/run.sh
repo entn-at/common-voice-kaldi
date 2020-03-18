@@ -29,13 +29,14 @@ fi
 if [ $stage -le 1 ]; then
   # Select only utterances with accent labels and resample data
   if [ $accent_only = true ]; then
-    local/prep_accent_corpus.sh $data
+    local/prep_accent_corpus.sh en $data data
+  else
+    mkdir -p data/en
+    cp $data/{train,dev,test}.tsv data/en
   fi
   # clean punctuation, normalise case, remove empty audios/transcripts
-  mkdir -p $data/accent_meta
-  mv $data/*.tsv $data/accent_meta
   for part in train dev test; do
-    local/clean_corpus.py --meta $data/accent_meta/${part}.tsv --clean $data/${part}.tsv
+    local/clean_corpus.py --meta data/en/${part}.tsv --clean data/${part}.tsv
   done
 fi
 

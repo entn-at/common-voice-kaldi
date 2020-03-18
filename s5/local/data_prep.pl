@@ -12,7 +12,6 @@ if (@ARGV != 3) {
 }
 
 ($db_base, $dataset, $out_dir) = @ARGV;
-#mkdir data unless -d data;
 mkdir $out_dir unless -d $out_dir;
 
 open(TSV, "<", "$db_base/$dataset.tsv") or die "cannot open dataset TSV file";
