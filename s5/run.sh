@@ -9,6 +9,7 @@
 data=/mnt/data/common_voice_en_1488h_20191210
 data_url=https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz
 accent_only=true
+bg_decode=false
 
 . ./cmd.sh
 . ./path.sh
@@ -80,13 +81,18 @@ fi
 if [ $stage -le 4 ]; then
   steps/train_mono.sh --boost-silence 1.25 --nj 16 --cmd "$train_cmd" \
     data/train_10kshort data/lang exp/mono || exit 1;
-  (
-    utils/mkgraph.sh data/lang_test exp/mono exp/mono/graph
-    for testset in dev; do
-      steps/decode.sh --nj 16 --cmd "$decode_cmd" exp/mono/graph \
-        data/$testset exp/mono/decode_$testset
-    done
-  )&
+
+  # decode using the mono model
+  if [ $bg_decode = true ]; then
+    (
+      utils/mkgraph.sh data/lang_test exp/mono exp/mono/graph
+      for testset in dev; do
+        steps/decode.sh --nj 16 --cmd "$decode_cmd" exp/mono/graph \
+          data/$testset exp/mono/decode_$testset
+      done
+    )&
+  fi
+
   steps/align_si.sh --boost-silence 1.25 --nj 8 --cmd "$train_cmd" \
     data/train_20k data/lang exp/mono exp/mono_ali_train_20k
 fi
@@ -97,13 +103,15 @@ if [ $stage -le 5 ]; then
     2000 10000 data/train_20k data/lang exp/mono_ali_train_20k exp/tri1
 
   # decode using the tri1 model
-  (
-    utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph
-    for testset in dev; do
-      steps/decode.sh --nj 8 --cmd "$decode_cmd" exp/tri1/graph \
-        data/$testset exp/tri1/decode_$testset
-    done
-  )&
+  if [ $bg_decode = true ]; then
+    (
+      utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph
+      for testset in dev; do
+        steps/decode.sh --nj 8 --cmd "$decode_cmd" exp/tri1/graph \
+          data/$testset exp/tri1/decode_$testset
+      done
+    )&
+  fi
 
   steps/align_si.sh --nj 8 --cmd "$train_cmd" \
     data/train_20k data/lang exp/tri1 exp/tri1_ali_train_20k
@@ -116,13 +124,15 @@ if [ $stage -le 6 ]; then
     data/train_20k data/lang exp/tri1_ali_train_20k exp/tri2b
 
   # decode using the LDA+MLLT model
-  (
-    utils/mkgraph.sh data/lang_test exp/tri2b exp/tri2b/graph
-    for testset in dev; do
-      steps/decode.sh --nj 8 --cmd "$decode_cmd" exp/tri2b/graph \
-        data/$testset exp/tri2b/decode_$testset
-    done
-  )&
+  if [ $bg_decode = true ]; then
+    (
+      utils/mkgraph.sh data/lang_test exp/tri2b exp/tri2b/graph
+      for testset in dev; do
+        steps/decode.sh --nj 8 --cmd "$decode_cmd" exp/tri2b/graph \
+          data/$testset exp/tri2b/decode_$testset
+      done
+    )&
+  fi
 
   # Align utts using the tri2b model
   steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
@@ -135,13 +145,15 @@ if [ $stage -le 7 ]; then
     data/train_20k data/lang exp/tri2b_ali_train_20k exp/tri3b
 
   # decode using the tri3b model
-  (
-    utils/mkgraph.sh data/lang_test exp/tri3b exp/tri3b/graph
-    for testset in dev; do
-      steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
-        exp/tri3b/graph data/$testset exp/tri3b/decode_$testset
-    done
-  )&
+  if [ $bg_decode = true ]; then
+    (
+      utils/mkgraph.sh data/lang_test exp/tri3b exp/tri3b/graph
+      for testset in dev; do
+        steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
+          exp/tri3b/graph data/$testset exp/tri3b/decode_$testset
+      done
+    )&
+  fi
 fi
 
 if [ $stage -le 8 ]; then
@@ -156,6 +168,7 @@ if [ $stage -le 8 ]; then
     exp/tri3b_ali_train exp/tri4b
 
   # decode using the tri4b model
+  # this one is required for chain model training so always run it
   (
     utils/mkgraph.sh data/lang_test exp/tri4b exp/tri4b/graph
     for testset in dev; do
