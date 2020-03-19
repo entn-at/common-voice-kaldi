@@ -5,16 +5,16 @@
 #
 # Usage: data_prep.pl /export/data/cv_corpus_v1 train data/train
 
-if (@ARGV != 3) {
+if (@ARGV != 4) {
   print STDERR "Usage: $0 <path-to-commonvoice-corpus> <dataset> <out-dir>\n";
   print STDERR "e.g. $0 /export/data/cv_en_1488h_20191210 train data/train\n";
   exit(1);
 }
 
-($db_base, $dataset, $out_dir) = @ARGV;
+($db_base, $meta_base, $dataset, $out_dir) = @ARGV;
 mkdir $out_dir unless -d $out_dir;
 
-open(TSV, "<", "$db_base/$dataset.tsv") or die "cannot open dataset TSV file";
+open(TSV, "<", "$meta_base/$dataset.tsv") or die "cannot open dataset TSV file";
 open(SPKR,">", "$out_dir/utt2spk") or die "Could not open the output file $out_dir/utt2spk";
 open(GNDR,">", "$out_dir/utt2gender") or die "Could not open the output file $out_dir/utt2gender";
 open(TEXT,">", "$out_dir/text") or die "Could not open the output file $out_dir/text";
