@@ -132,6 +132,7 @@ fi
 
 
 if [ $stage -le 13 ]; then
+  mkdir -p data/accent_vec
   # Get all possible accent labels across datasets and set 1-hot vector dim
   awk -F'\t' '{ print $8 }' data/{train,dev,test}.tsv | \
     sort | uniq | grep -v 'accent' > data/accent_vec/accent_list.txt

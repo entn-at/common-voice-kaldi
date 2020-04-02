@@ -44,6 +44,8 @@ def meta_acc_to_1hot(meta_in, acc_to_1hot, label_unk):
 
 def write_sp_text_ark(utt_to_1hot, out_dir):
     """Write Kaldi 1-hot accent vector text ark for speed-perturbed utts"""
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
     # write output in a separate loop cos not sure if kaldi expects
     # speed-perturbed data in a certain order (which default recipe
     # provides) and would complain if they were interleaved
