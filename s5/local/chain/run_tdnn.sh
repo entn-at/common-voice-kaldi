@@ -137,13 +137,18 @@ if [ $stage -le 13 ]; then
     sort | uniq | grep -v 'accent' > data/accent_vec/accent_list.txt
   accent_vec_dim=$(cat data/accent_vec/accent_list.txt | wc -l)
   # Prepare 1-hot accent vectors for each utterance, via text ark format
+  # Sample 10% of utterances to 'unknown' accent label for test on unseen accents
   for part in train dev test; do
-    python local/prep_accent_vecs.py data/${part}.tsv \
-      data/accent_vec/$part data/accent_vec/accent_list.txt
+    python local/prep_accent_vecs.py \
+      --meta_in data/${part}.tsv \
+      --out_dir data/accent_vec/$part \
+      --accent_list data/accent_vec/accent_list.txt \
+      --label_unk 0.1
     copy-vector ark,t:data/accent_vec/$part/accent_vec.txt \
       ark,scp:data/accent_vec/$part/accent_vec.ark,data/accent_vec/$part/accent_vec.scp
+    # Verify vector dim equals accent_list + 1 for unknown
     [ $(feat-to-dim ark,t:data/accent_vec/$part/accent_vec.txt -) \
-      -eq $accent_vec_dim ] || exit 1
+      -eq $((accent_vec_dim + 1))] || exit 1
   done
 fi
 
