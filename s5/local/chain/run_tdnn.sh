@@ -148,7 +148,7 @@ if [ $stage -le 13 ]; then
       ark,scp:data/accent_vec/$part/accent_vec.ark,data/accent_vec/$part/accent_vec.scp
     # Verify vector dim equals accent_list + 1 for unknown
     [ $(feat-to-dim ark,t:data/accent_vec/$part/accent_vec.txt -) \
-      -eq $((accent_vec_dim + 1))] || exit 1
+      -eq $((accent_vec_dim + 1)) ] || exit 1
   done
 fi
 
