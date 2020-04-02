@@ -70,6 +70,7 @@ def generate_chain_egs(dir, data, lat_dir, egs_dir,
                        frame_subsampling_factor=3,
                        alignment_subsampling_factor=3,
                        online_ivector_dir=None,
+                       accent_vec_dir=None,
                        frames_per_iter=20000, frames_per_eg_str="20", srand=0,
                        egs_opts=None, cmvn_opts=None):
     """Wrapper for steps/nnet3/chain/get_egs.sh
@@ -82,6 +83,7 @@ def generate_chain_egs(dir, data, lat_dir, egs_dir,
                 --cmd "{command}" \
                 --cmvn-opts "{cmvn_opts}" \
                 --online-ivector-dir "{ivector_dir}" \
+                --accent-vec-dir "{accent_vec_dir}" \
                 --left-context {left_context} \
                 --right-context {right_context} \
                 --left-context-initial {left_context_initial} \
@@ -99,6 +101,9 @@ def generate_chain_egs(dir, data, lat_dir, egs_dir,
                     cmvn_opts=cmvn_opts if cmvn_opts is not None else '',
                     ivector_dir=(online_ivector_dir
                                  if online_ivector_dir is not None
+                                 else ''),
+                    accent_vec_dir=(accent_vec_dir
+                                 if accent_vec_dir is not None
                                  else ''),
                     left_context=left_context,
                     right_context=right_context,

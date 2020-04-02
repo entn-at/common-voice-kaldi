@@ -401,6 +401,7 @@ def train(args, run_opts):
             egs_opts=args.egs_opts,
             cmvn_opts=args.cmvn_opts,
             online_ivector_dir=args.online_ivector_dir,
+            accent_vec_dir=args.accent_vec_dir,
             frames_per_iter=args.frames_per_iter,
             stage=args.egs_stage)
 
