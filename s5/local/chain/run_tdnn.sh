@@ -136,7 +136,6 @@ if [ $stage -le 13 ]; then
   # Get all possible accent labels across datasets and set 1-hot vector dim
   awk -F'\t' '{ print $8 }' data/{train,dev,test}.tsv | \
     sort | uniq | grep -v 'accent' > data/accent_vec/accent_list.txt
-  accent_vec_dim=$(cat data/accent_vec/accent_list.txt | wc -l)
   # Prepare 1-hot accent vectors for each utterance, via text ark format
   # Sample 10% of utterances to 'unknown' accent label for test on unseen accents
   for part in train dev test; do
@@ -148,8 +147,9 @@ if [ $stage -le 13 ]; then
     copy-vector ark,t:data/accent_vec/$part/accent_vec.txt \
       ark,scp:data/accent_vec/$part/accent_vec.ark,data/accent_vec/$part/accent_vec.scp
     # Verify vector dim equals accent_list + 1 for unknown
+    accent_vec_dim=$(($(cat data/accent_vec/accent_list.txt | wc -l) + 1))
     [ $(feat-to-dim ark,t:data/accent_vec/$part/accent_vec.txt -) \
-      -eq $((accent_vec_dim + 1)) ] || exit 1
+      -eq $accent_vec_dim ] || exit 1
   done
 fi
 
