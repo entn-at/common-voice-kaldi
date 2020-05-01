@@ -57,6 +57,12 @@ done
 cp $data_in/utt2spk $data_out/utt2spk
 cp $data_in/spk2utt $data_out/spk2utt
 cp $data_in/wav.scp $data_out/wav.scp
+if [ -f $data_in/utt2lang ]; then
+  cp $data_in/utt2lang $data_out/utt2lang
+fi
+if [ -f $data_in/lang2utt ]; then
+  cp $data_in/lang2utt $data_out/lang2utt
+fi
 
 write_num_frames_opt="--write-num-frames=ark,t:$featdir/log/utt2num_frames.JOB"
 

@@ -135,6 +135,10 @@ done
 
 utils/utt2spk_to_spk2utt.pl <$dest/utt2spk >$dest/spk2utt
 
+if [ -f $dest/utt2lang ]; then
+  utils/utt2spk_to_spk2utt.pl <$dest/utt2lang >$dest/lang2utt
+fi
+
 if [[ $dir_with_frame_shift ]]; then
   cp $dir_with_frame_shift/frame_shift $dest
 fi

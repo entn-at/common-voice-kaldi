@@ -96,6 +96,15 @@ def get_args():
                     help="Seed for random number generator")
     parser.add_argument("--num-pdfs", type=int, default=-1,
                     help="Num pdfs")
+    parser.add_argument("--task", type=str,
+                    help="Task to generate egs for, either speaker ID (sid) or language ID (lid).",
+                    default="sid", choices=["sid", "lid"])
+    parser.add_argument("--lang2spk-filename", type=str,
+                    help="lang2spk file of the features to be used as input (format is: "
+                    "<language> <speaker-id>. Required for LID tasks.")
+    parser.add_argument("--lid-spk2utt-filename", type=str,
+                    help="spk2utt file of the features to be used as input (format is: "
+                    "<speaker-id> <utterance-id>. Required for LID tasks.")
 
     # now the positional arguments
     parser.add_argument("--utt2len-filename", type=str, required=True,
@@ -172,6 +181,31 @@ def get_labels(utt2int_filename):
     return spks, spk2utt, utt2spk
     # Done utt2int
 
+def get_lang2spk(lang2spk_filename):
+    lang2spk = {}
+    f = open(lang2spk_filename, "r")
+    if f is None:
+        sys.exit("Error opening lang2spk file " + str(lang2spk_filename))
+    for line in f:
+        tokens = line.split()
+        lang2spk[tokens[0]] = []
+        for spk in tokens[1:]:
+            lang2spk[tokens[0]].append(spk)
+    f.close()
+    return lang2spk
+
+def get_lid_spk2utt(lid_spk2utt_filename):
+    lid_spk2utt = {}
+    f = open(lid_spk2utt_filename, "r")
+    if f is None:
+        sys.exit("Error opening lid_spk2utt file " + str(lid_spk2utt_filename))
+    for line in f:
+        tokens = line.split()
+        lid_spk2utt[tokens[0]] = []
+        for utt in tokens[1:]:
+            lid_spk2utt[tokens[0]].append(utt)
+    f.close()
+    return lid_spk2utt
 
 # this function returns a random integer utterance index, limited to utterances
 # above a minimum length in frames, with probability proportional to its length.
@@ -223,6 +257,11 @@ def main():
     random.seed(args.seed)
     utt2len = get_utt2len(args.utt2len_filename)
     spks, spk2utt, utt2spk = get_labels(args.utt2int_filename)
+    if args.task == 'lid':
+        # nb. for lid data spk2utt is really lang2utt, so need
+        # another actual spk2utt as well
+        lang2spk = get_lang2spk(args.lang2spk_filename)
+        lid_spk2utt = get_lid_spk2utt(args.lid_spk2utt_filename)
     if args.num_pdfs == -1:
         args.num_pdfs = max(spks) + 1
 
@@ -250,14 +289,18 @@ def main():
         archive_chunk_lengths.append(length)
         this_num_egs = int(float(args.frames_per_iter) / length + 1)
         this_egs = [ ] # A 2-tuple of the form (utt-id, start-frame)
-        spkrs = args.num_repeats * list(spk2utt.keys())
+        if args.task == "sid":
+            spkr_idx = spk2utt
+        elif args.task == "lid":
+            spkr_idx = lid_spk2utt
+        spkrs = args.num_repeats * list(spkr_idx.keys())
         random.shuffle(spkrs)
         for n in range(this_num_egs):
             if len(spkrs) == 0:
                 print("Ran out of speakers for archive {0}".format(archive_index + 1))
                 break
             spkr = spkrs.pop()
-            utt = get_random_utt(spkr, spk2utt, length)
+            utt = get_random_utt(spkr, spkr_idx, length)
             utt_len = utt2len[utt]
             offset = get_random_offset(utt_len, length)
             this_egs.append( (utt, offset) )

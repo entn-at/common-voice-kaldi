@@ -45,6 +45,10 @@ stage=0
 nj=6         # This should be set to the maximum number of jobs you are
              # comfortable to run in parallel; you can increase it if your disk
              # speed is greater and you have more machines.
+task=lid  # Affects sampling behavior in allocate_egs.py. With language ID
+          # targets, should set to `lid` to ensure data is sampled from all
+          # speakers. For speaker ID, set to `sid` to follow original recipe
+          # sampling procedure.
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -72,8 +76,10 @@ if [ $# != 2 ]; then
   echo "                                                   # they contain different utterance lengths."
   echo "  --frames-per-iter-diagnostic <#samples;100000>   # Target number of frames for the diagnostic archives"
   echo "                                                   # {train_subset,valid}.*.egs"
-  echo "  --stage <stage|0>                                # Used to run a partially-completed training process from somewhere in"
+  echo "  --stage <stage;0>                                # Used to run a partially-completed training process from somewhere in"
   echo "                                                   # the middle."
+  echo "  --task <lid|sid;lid>                             # Adjusts sampling behavior in allocate_egs.py for language or"
+  echo "                                                   # speaker ID targets."
 
   exit 1;
 fi
@@ -100,7 +106,7 @@ cp $data/utt2num_frames $dir/temp/utt2num_frames
 if [ $stage -le 0 ]; then
   echo "$0: Preparing train and validation lists"
   # Pick a list of heldout utterances for validation egs
-  awk '{print $1}' $data/utt2spk | utils/shuffle_list.pl | head -$num_heldout_utts > $temp/valid_uttlist || exit 1;
+  awk '{print $1}' $data/utt2lang | utils/shuffle_list.pl | head -$num_heldout_utts > $temp/valid_uttlist || exit 1;
   # The remaining utterances are used for training egs
   utils/filter_scp.pl --exclude $temp/valid_uttlist $temp/utt2num_frames > $temp/utt2num_frames.train
   utils/filter_scp.pl $temp/valid_uttlist $temp/utt2num_frames > $temp/utt2num_frames.valid
@@ -108,11 +114,16 @@ if [ $stage -le 0 ]; then
   awk '{print $1}' $temp/utt2num_frames.train | utils/shuffle_list.pl | head -$num_heldout_utts > $temp/train_subset_uttlist || exit 1;
   utils/filter_scp.pl $temp/train_subset_uttlist <$temp/utt2num_frames.train > $temp/utt2num_frames.train_subset
   # Create a mapping from utterance to speaker ID (an integer)
-  awk -v id=0 '{print $1, id++}' $data/spk2utt > $temp/spk2int
-  utils/sym2int.pl -f 2 $temp/spk2int $data/utt2spk > $temp/utt2int
+  awk -v id=0 '{print $1, id++}' $data/lang2utt > $temp/lang2int
+  utils/sym2int.pl -f 2 $temp/lang2int $data/utt2lang > $temp/utt2int
   utils/filter_scp.pl $temp/utt2num_frames.train $temp/utt2int > $temp/utt2int.train
   utils/filter_scp.pl $temp/utt2num_frames.valid $temp/utt2int > $temp/utt2int.valid
   utils/filter_scp.pl $temp/utt2num_frames.train_subset $temp/utt2int > $temp/utt2int.train_subset
+  for part in train train_subset valid; do
+    utils/filter_scp.pl $temp/utt2num_frames.$part $data/utt2spk > $temp/utt2spk.$part
+    paste $temp/utt2int.$part $temp/utt2spk.$part | awk '{print $4, $2}' | utils/utt2spk_to_spk2utt.pl > $temp/int2spk.$part
+    utils/utt2spk_to_spk2utt.pl $temp/utt2spk.$part > $temp/spk2utt.$part
+  done
 fi
 
 num_pdfs=$(awk '{print $2}' $temp/utt2int | sort | uniq -c | wc -l)
@@ -150,6 +161,8 @@ if [ $stage -le 2 ]; then
   echo "$0: Allocating training examples"
   $cmd $dir/log/allocate_examples_train.log \
     local/xvector/allocate_egs.py \
+      --task $task --lang2spk-filename $temp/int2spk.train \
+      --lid-spk2utt-filename $temp/spk2utt.train \
       --num-repeats=$num_repeats \
       --min-frames-per-chunk=$min_frames_per_chunk \
       --max-frames-per-chunk=$max_frames_per_chunk \
@@ -162,6 +175,8 @@ if [ $stage -le 2 ]; then
   $cmd $dir/log/allocate_examples_train_subset.log \
     local/xvector/allocate_egs.py \
       --prefix train_subset \
+      --task $task --lang2spk-filename $temp/int2spk.train_subset \
+      --lid-spk2utt-filename $temp/spk2utt.train_subset \
       --num-repeats=1 \
       --min-frames-per-chunk=$min_frames_per_chunk \
       --max-frames-per-chunk=$max_frames_per_chunk \
@@ -175,6 +190,8 @@ if [ $stage -le 2 ]; then
   $cmd $dir/log/allocate_examples_valid.log \
     local/xvector/allocate_egs.py \
       --prefix valid \
+      --task $task --lang2spk-filename $temp/int2spk.valid \
+      --lid-spk2utt-filename $temp/spk2utt.valid \
       --num-repeats=1 \
       --min-frames-per-chunk=$min_frames_per_chunk \
       --max-frames-per-chunk=$max_frames_per_chunk \

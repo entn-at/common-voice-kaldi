@@ -49,6 +49,12 @@ reporting_email=
 # with unmodified online decoding scripts
 test_online_decoding=false  # if true, it will run the last decoding stage.
 
+# method for passing accent information during training
+# options: 1hot, xvec
+acc_vec=xvec
+acc_vec_affix=_1a
+train_xvec=false
+accent_vec_dir=exp/xvectors
 
 # End configuration section.
 echo "$0 $@"  # Print the command line for logging
@@ -76,7 +82,6 @@ dir=exp/chain${nnet3_affix}/tdnn${affix}_sp
 train_data_dir=data/${train_set}_sp_hires
 lores_train_data_dir=data/${train_set}_sp
 train_ivector_dir=exp/nnet3${nnet3_affix}/ivectors_${train_set}_sp_hires
-train_accent_vec_dir=data/accent_vec/train
 
 for f in $gmm_dir/final.mdl $train_data_dir/feats.scp $train_ivector_dir/ivector_online.scp \
     $lores_train_data_dir/feats.scp $ali_dir/ali.1.gz; do
@@ -132,25 +137,42 @@ fi
 
 
 if [ $stage -le 13 ]; then
-  mkdir -p data/accent_vec
-  # Get all possible accent labels across datasets and set 1-hot vector dim
-  awk -F'\t' '{ print $8 }' data/{train,dev,test}.tsv | \
-    sort | uniq | grep -v 'accent' > data/accent_vec/accent_list.txt
-  # Prepare 1-hot accent vectors for each utterance, via text ark format
-  # Sample 10% of utterances to 'unknown' accent label for test on unseen accents
-  for part in train dev test; do
-    python local/prep_accent_vecs.py \
-      --meta_in data/${part}.tsv \
-      --out_dir data/accent_vec/$part \
-      --accent_list data/accent_vec/accent_list.txt \
-      --label_unk 0.1
-    copy-vector ark,t:data/accent_vec/$part/accent_vec.txt \
-      ark,scp:data/accent_vec/$part/accent_vec.ark,data/accent_vec/$part/accent_vec.scp
-    # Verify vector dim equals accent_list + 1 for unknown
-    accent_vec_dim=$(($(cat data/accent_vec/accent_list.txt | wc -l) + 1))
-    [ $(feat-to-dim ark,t:data/accent_vec/$part/accent_vec.txt -) \
-      -eq $accent_vec_dim ] || exit 1
-  done
+  mkdir -p $accent_vec_dir
+  if [ $acc_vec = "1hot" ]; then
+    # Get all possible accent labels across datasets and set 1-hot vector dim
+    awk -F'\t' '{ print $8 }' data/{train,dev,test}.tsv | \
+      sort | uniq | grep -v 'accent' > $accent_vec_dir/accent_list.txt
+    # Prepare 1-hot accent vectors for each utterance, via text ark format
+    # Sample 10% of utterances to 'unknown' accent label for test on unseen accents
+    for part in train dev test; do
+      python local/prep_accent_vecs.py \
+        --meta_in data/${part}.tsv \
+        --out_dir $accent_vec_dir/${part}${acc_vec_affix} \
+        --accent_list $accent_vec_dir/accent_list.txt \
+        --label_unk 0.1
+      copy-vector ark,t:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.txt \
+        ark,scp:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.ark,$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.scp
+      # Verify vector dim equals accent_list + 1 for unknown
+      accent_vec_dim_expected=$(($(cat $accent_vec_dir/accent_list.txt | wc -l) + 1))
+      accent_vec_dim=$(feat-to-dim ark,t:$accent_vec_dir/train${acc_vec_affix}/accent_vec.txt -)
+      if [ $accent_vec_dim_expected -ne $accent_vec_dim ]; then
+        echo "Mismatched dimensions in 1-hot accent vectors: expected $accent_vec_dim_expected, got $accent_vec_dim"
+        exit 1
+      fi
+    done
+  elif [ $acc_vec = "xvec" ]; then
+    # nb. this trains xvector extractor (maybe slow) and then extracts them (definitely slow)
+    if [ $train_xvec = true ]; then
+      local/xvector/run.sh --xvec-affix $acc_vec_affix
+    fi
+    for part in train_sp dev test; do
+      copy-vector scp:$accent_vec_dir/${part}${acc_vec_affix}/xvector.scp \
+        ark,scp:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.ark,$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.scp
+      copy-vector ark:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.ark \
+        ark,t:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.txt
+    done
+    accent_vec_dim=$(feat-to-dim ark,t:$accent_vec_dir/train_sp${acc_vec_affix}/accent_vec.txt -)
+  fi
 fi
 
 
@@ -203,10 +225,12 @@ fi
 
 
 if [ $stage -le 15 ]; then
-  #if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $dir/egs/storage ]; then
-  #  utils/create_split_dir.pl \
-  #   /export/b0{3,4,5,6}/$USER/kaldi-data/egs/commonvoice-$(date +'%m_%d_%H_%M')/s5/$dir/egs/storage $dir/egs/storage
-  #fi
+  case $acc_vec in
+    1hot)
+      train_accent_vec_dir=$accent_vec_dir/train${acc_vec_affix} ;;
+    xvec)
+      train_accent_vec_dir=$accent_vec_dir/train_sp${acc_vec_affix} ;;
+  esac
 
   steps/nnet3/chain/train.py --stage=$train_stage \
     --cmd="$decode_cmd" \
@@ -236,6 +260,7 @@ if [ $stage -le 15 ]; then
     --egs.chunk-right-context-final=0 \
     --egs.dir="$common_egs_dir" \
     --egs.opts="--frames-overlap-per-eg 0" \
+    --egs.stage=$get_egs_stage \
     --cleanup.remove-egs=$remove_egs \
     --use-gpu=wait \
     --reporting.email="$reporting_email" \
@@ -271,7 +296,7 @@ if [ $stage -le 17 ]; then
           --frames-per-chunk $frames_per_chunk \
           --nj $nspk --cmd "$decode_cmd"  --num-threads 4 \
           --online-ivector-dir exp/nnet3${nnet3_affix}/ivectors_${data}_hires \
-          --accent-vec-dir data/accent_vec/$data \
+          --accent-vec-dir $accent_vec_dir/${data}${acc_vec_affix} \
           $tree_dir/graph data/${data}_hires ${dir}/decode_${data} || exit 1
     ) || touch $dir/.error &
   done

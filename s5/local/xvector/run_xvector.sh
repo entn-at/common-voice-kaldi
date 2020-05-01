@@ -23,7 +23,7 @@ egs_dir=exp/xvector_nnet_1a/egs
 . ./cmd.sh
 . ./utils/parse_options.sh
 
-num_pdfs=$(awk '{print $2}' $data/utt2spk | sort | uniq -c | wc -l)
+num_pdfs=$(awk '{print $2}' $data/utt2lang | sort | uniq -c | wc -l)
 
 # Now we create the nnet examples using local/xvector/get_egs.sh.
 # The argument --num-repeats is related to the number of times a speaker
@@ -38,7 +38,7 @@ num_pdfs=$(awk '{print $2}' $data/utt2spk | sort | uniq -c | wc -l)
 # exp/<your-dir>/egs/temp/ranges.* . The ranges files specify the examples that
 # will be created, and which archives they will be stored in.  Each line of
 # ranges.* has the following form:
-#    <utt-id> <local-ark-indx> <global-ark-indx> <start-frame> <end-frame> <spk-id>
+#    <utt-id> <local-ark-indx> <global-ark-indx> <start-frame> <end-frame> <lang-id>
 # For example:
 #    100304-f-sre2006-kacg-A 1 2 4079 881 23
 
@@ -52,20 +52,16 @@ num_pdfs=$(awk '{print $2}' $data/utt2spk | sort | uniq -c | wc -l)
 # number of examples per archive.
 if [ $stage -le 4 ]; then
   echo "$0: Getting neural network training egs";
-  # dump egs.
-  if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $egs_dir/storage ]; then
-    utils/create_split_dir.pl \
-     /export/b{03,04,05,06}/$USER/kaldi-data/egs/sre16/v2/xvector-$(date +'%m_%d_%H_%M')/$egs_dir/storage $egs_dir/storage
-  fi
   local/xvector/get_egs.sh --cmd "$train_cmd" \
     --nj 8 \
     --stage 0 \
     --frames-per-iter 1000000000 \
     --frames-per-iter-diagnostic 100000 \
-    --min-frames-per-chunk 200 \
-    --max-frames-per-chunk 400 \
+    --min-frames-per-chunk 100 \
+    --max-frames-per-chunk 300 \
     --num-diagnostic-archives 3 \
-    --num-repeats 35 \
+    --num-repeats 50 \
+    --task lid \
     "$data" $egs_dir
 fi
 
@@ -131,8 +127,8 @@ if [ $stage -le 6 ]; then
     --cmd="$train_cmd" \
     --trainer.optimization.proportional-shrink 10 \
     --trainer.optimization.momentum=0.5 \
-    --trainer.optimization.num-jobs-initial=3 \
-    --trainer.optimization.num-jobs-final=8 \
+    --trainer.optimization.num-jobs-initial=1 \
+    --trainer.optimization.num-jobs-final=1 \
     --trainer.optimization.initial-effective-lrate=0.001 \
     --trainer.optimization.final-effective-lrate=0.0001 \
     --trainer.optimization.minibatch-size=64 \
@@ -145,7 +141,7 @@ if [ $stage -le 6 ]; then
     --egs.dir="$egs_dir" \
     --cleanup.remove-egs $remove_egs \
     --cleanup.preserve-model-interval=10 \
-    --use-gpu=true \
+    --use-gpu=wait \
     --dir=$nnet_dir  || exit 1;
 fi
 
