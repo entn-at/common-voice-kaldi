@@ -1,5 +1,12 @@
 #!/usr/bin/sh
 
+if [ "$#" -ne 4 ]; then
+  echo "$0: missing arguments!"
+  echo "Usage: $0 TEST_META DECODE_DIR LM_WEIGHT WORD_INS_PEN"
+  echo "  e.g. $0 data/test.tsv exp/chain/tdnn1a_sp/decode_test 14 0.0"
+  exit 1
+fi
+
 . path.sh
 
 test_meta=$1
