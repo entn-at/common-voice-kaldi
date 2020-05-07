@@ -724,6 +724,10 @@ class CommonParser(object):
                                  action=common_lib.NullstrToNoneAction,
                                  help="A string specifying '--norm-means' "
                                  "and '--norm-vars' values")
+        self.parser.add_argument("--feat.accent-vec-dir", type=str,
+                                 dest='accent_vec_dir', default=None,
+                                 action=common_lib.NullstrToNoneAction,
+                                 help="""directory with the accent vectors.""")
 
         # egs extraction options.  there is no point adding the chunk context
         # option for non-RNNs (by which we mean basic TDNN-type topologies), as

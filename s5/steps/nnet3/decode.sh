@@ -32,6 +32,7 @@ extra_right_context=0
 extra_left_context_initial=-1
 extra_right_context_final=-1
 online_ivector_dir=
+accent_vec_dir=
 minimize=false
 # End configuration section.
 
@@ -70,6 +71,10 @@ extra_files=
 if [ ! -z "$online_ivector_dir" ]; then
   steps/nnet2/check_ivectors_compatible.sh $srcdir $online_ivector_dir || exit 1
   extra_files="$online_ivector_dir/ivector_online.scp $online_ivector_dir/ivector_period"
+fi
+
+if [ ! -z "$accent_vec_dir" ]; then
+  extra_files="$extra_files $accent_vec_dir/accent_vec.scp"
 fi
 
 utils/lang/check_phones_compatible.sh {$srcdir,$graphdir}/phones.txt || exit 1
@@ -112,6 +117,12 @@ if [ ! -z "$online_ivector_dir" ]; then
   ivector_opts="--online-ivectors=scp:$online_ivector_dir/ivector_online.scp --online-ivector-period=$ivector_period"
 fi
 
+if [ ! -z "$accent_vec_dir" ]; then
+  accent_vec_opts="--accent-vec-rspecifier=scp:$accent_vec_dir/accent_vec.scp"
+else
+  accent_vec_opts=""
+fi
+
 if [ "$post_decode_acwt" == 1.0 ]; then
   lat_wspecifier="ark:|gzip -c >$dir/lat.JOB.gz"
 else
@@ -125,8 +136,10 @@ if [ -f $srcdir/frame_subsampling_factor ]; then
 fi
 
 if [ $stage -le 1 ]; then
+  # TODO(danwells): accent vector handling only added to
+  # nnet3-latgen-faster-parallel so far => decode on CPU
   $cmd $queue_opt JOB=1:$nj $dir/log/decode.JOB.log \
-    nnet3-latgen-faster$thread_string $ivector_opts $frame_subsampling_opt \
+    nnet3-latgen-faster$thread_string $ivector_opts $accent_vec_opts $frame_subsampling_opt \
      --frames-per-chunk=$frames_per_chunk \
      --extra-left-context=$extra_left_context \
      --extra-right-context=$extra_right_context \

@@ -45,8 +45,16 @@ remove_egs=false
 reporting_email=
 
 #decode options
-test_online_decoding=true  # if true, it will run the last decoding stage.
+# TODO(danwells): assuming accent vector stuff will not work
+# with unmodified online decoding scripts
+test_online_decoding=false  # if true, it will run the last decoding stage.
 
+# method for passing accent information during training
+# options: 1hot, xvec
+acc_vec=xvec
+acc_vec_affix=_1a
+train_xvec=false
+accent_vec_dir=exp/xvectors
 
 # End configuration section.
 echo "$0 $@"  # Print the command line for logging
@@ -129,6 +137,46 @@ fi
 
 
 if [ $stage -le 13 ]; then
+  mkdir -p $accent_vec_dir
+  if [ $acc_vec = "1hot" ]; then
+    # Get all possible accent labels across datasets and set 1-hot vector dim
+    awk -F'\t' '{ print $8 }' data/{train,dev,test}.tsv | \
+      sort | uniq | grep -v 'accent' > $accent_vec_dir/accent_list.txt
+    # Prepare 1-hot accent vectors for each utterance, via text ark format
+    # Sample 10% of utterances to 'unknown' accent label for test on unseen accents
+    for part in train dev test; do
+      python local/prep_accent_vecs.py \
+        --meta_in data/${part}.tsv \
+        --out_dir $accent_vec_dir/${part}${acc_vec_affix} \
+        --accent_list $accent_vec_dir/accent_list.txt \
+        --label_unk 0.1
+      copy-vector ark,t:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.txt \
+        ark,scp:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.ark,$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.scp
+      # Verify vector dim equals accent_list + 1 for unknown
+      accent_vec_dim_expected=$(($(cat $accent_vec_dir/accent_list.txt | wc -l) + 1))
+      accent_vec_dim=$(feat-to-dim ark,t:$accent_vec_dir/train${acc_vec_affix}/accent_vec.txt -)
+      if [ $accent_vec_dim_expected -ne $accent_vec_dim ]; then
+        echo "Mismatched dimensions in 1-hot accent vectors: expected $accent_vec_dim_expected, got $accent_vec_dim"
+        exit 1
+      fi
+    done
+  elif [ $acc_vec = "xvec" ]; then
+    # nb. this trains xvector extractor (maybe slow) and then extracts them (definitely slow)
+    if [ $train_xvec = true ]; then
+      local/xvector/run.sh --xvec-affix $acc_vec_affix
+    fi
+    for part in train_sp dev test; do
+      copy-vector scp:$accent_vec_dir/${part}${acc_vec_affix}/xvector.scp \
+        ark,scp:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.ark,$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.scp
+      copy-vector ark:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.ark \
+        ark,t:$accent_vec_dir/${part}${acc_vec_affix}/accent_vec.txt
+    done
+    accent_vec_dim=$(feat-to-dim ark,t:$accent_vec_dir/train_sp${acc_vec_affix}/accent_vec.txt -)
+  fi
+fi
+
+
+if [ $stage -le 14 ]; then
   mkdir -p $dir
   echo "$0: creating neural net configs using the xconfig parser";
 
@@ -138,12 +186,13 @@ if [ $stage -le 13 ]; then
   mkdir -p $dir/configs
   cat <<EOF > $dir/configs/network.xconfig
   input dim=100 name=ivector
+  input dim=$accent_vec_dim name=accent
   input dim=40 name=input
 
   # please note that it is important to have input layer with the name=input
   # as the layer immediately preceding the fixed-affine-layer to enable
   # the use of short notation for the descriptor
-  fixed-affine-layer name=lda input=Append(-2,-1,0,1,2,ReplaceIndex(ivector, t, 0)) affine-transform-file=$dir/configs/lda.mat
+  fixed-affine-layer name=lda input=Append(-2,-1,0,1,2,ReplaceIndex(ivector, t, 0),ReplaceIndex(accent, t, 0)) affine-transform-file=$dir/configs/lda.mat
 
   # the first splicing is moved before the lda layer, so no splicing here
   relu-batchnorm-layer name=tdnn1 dim=768
@@ -175,16 +224,19 @@ EOF
 fi
 
 
-if [ $stage -le 14 ]; then
-  #if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $dir/egs/storage ]; then
-  #  utils/create_split_dir.pl \
-  #   /export/b0{3,4,5,6}/$USER/kaldi-data/egs/commonvoice-$(date +'%m_%d_%H_%M')/s5/$dir/egs/storage $dir/egs/storage
-  #fi
+if [ $stage -le 15 ]; then
+  case $acc_vec in
+    1hot)
+      train_accent_vec_dir=$accent_vec_dir/train${acc_vec_affix} ;;
+    xvec)
+      train_accent_vec_dir=$accent_vec_dir/train_sp${acc_vec_affix} ;;
+  esac
 
   steps/nnet3/chain/train.py --stage=$train_stage \
     --cmd="$decode_cmd" \
     --feat.online-ivector-dir=$train_ivector_dir \
     --feat.cmvn-opts="--norm-means=false --norm-vars=false" \
+    --feat.accent-vec-dir=$train_accent_vec_dir \
     --chain.xent-regularize $xent_regularize \
     --chain.leaky-hmm-coefficient=0.1 \
     --chain.l2-regularize=0.00005 \
@@ -208,6 +260,7 @@ if [ $stage -le 14 ]; then
     --egs.chunk-right-context-final=0 \
     --egs.dir="$common_egs_dir" \
     --egs.opts="--frames-overlap-per-eg 0" \
+    --egs.stage=$get_egs_stage \
     --cleanup.remove-egs=$remove_egs \
     --use-gpu=wait \
     --reporting.email="$reporting_email" \
@@ -217,7 +270,7 @@ if [ $stage -le 14 ]; then
     --dir=$dir  || exit 1;
 fi
 
-if [ $stage -le 15 ]; then
+if [ $stage -le 16 ]; then
   # Note: it's not important to give mkgraph.sh the lang directory with the
   # matched topology (since it gets the topology file from the model).
   utils/mkgraph.sh \
@@ -225,10 +278,12 @@ if [ $stage -le 15 ]; then
     $tree_dir $tree_dir/graph || exit 1;
 fi
 
-if [ $stage -le 16 ]; then
+if [ $stage -le 17 ]; then
   frames_per_chunk=$(echo $chunk_width | cut -d, -f1)
   rm $dir/.error 2>/dev/null || true
 
+  # TODO(danwells): accent vector handling only added to
+  # nnet3-latgen-faster-parallel so far => decode on CPU
   for data in $test_sets; do
     (
       nspk=$(wc -l <data/${data}_hires/spk2utt)
@@ -241,6 +296,7 @@ if [ $stage -le 16 ]; then
           --frames-per-chunk $frames_per_chunk \
           --nj $nspk --cmd "$decode_cmd"  --num-threads 4 \
           --online-ivector-dir exp/nnet3${nnet3_affix}/ivectors_${data}_hires \
+          --accent-vec-dir $accent_vec_dir/${data}${acc_vec_affix} \
           $tree_dir/graph data/${data}_hires ${dir}/decode_${data} || exit 1
     ) || touch $dir/.error &
   done
@@ -252,7 +308,7 @@ fi
 # TDNN systems it would give exactly the same results as the
 # normal decoding.
 
-if $test_online_decoding && [ $stage -le 17 ]; then
+if $test_online_decoding && [ $stage -le 18 ]; then
   # note: if the features change (e.g. you add pitch features), you will have to
   # change the options of the following command line.
   steps/online/nnet3/prepare_online_decoding.sh \

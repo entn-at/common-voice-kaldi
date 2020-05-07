@@ -104,6 +104,9 @@ if [ -f $srcdir/spk2gender ]; then
 fi
 if [ -f $srcdir/utt2lang ]; then
   utils/apply_map.pl -f 1 $destdir/utt_map <$srcdir/utt2lang >$destdir/utt2lang
+  if [ -f $srcdir/lang2utt ]; then
+    utils/utt2spk_to_spk2utt.pl $destdir/utt2lang > $destdir/lang2utt
+  fi
 fi
 
 #prepare speed-perturbed utt2dur
