@@ -1,7 +1,10 @@
 # common-voice-kaldi
+
 Kaldi recipes for multi-accent ASR on the English portion of [Mozilla Common Voice](https://voice.mozilla.org/).
 
+
 ### Models added
+
 After training a baseline [chain TDNN model](https://kaldi-asr.org/doc/chain.html) on all the English data, with no accent-specific information provided, we plan to experiment with the following additions to network inputs during training:
 
 - [x] Baseline chain model pooling all accent data
@@ -10,11 +13,25 @@ After training a baseline [chain TDNN model](https://kaldi-asr.org/doc/chain.htm
 - [x] Embeddings from separate accent ID system (x-vector?)
 - [ ] Output probabilities from separate accent ID system
 
+
 ### Corpus preprocessing
+
 We take only the subset of the English portion of MCV for which accent labels are available, and split into train, dev and test sets using the [Mozilla CorporaCreator](https://github.com/mozilla/CorporaCreator) tool, same as the full dataset. 
 All text is uppercased, cleaned of punctuation (except apostrophes in contractions) and has accented or other foreign-language characters normalized and transliterated to the 26 characters used in the English alphabet (where simple to do so, e.g. "ß" > "ss").
 
+
 ### Data summary
+
+The tables below show the amount of data available per accent after sampling with CorporaCreator in terms of duration and utterance and speaker counts.
+Every utterance represents a unique transcription, both within and between data partitions.
+The number of unique speakers in each case is based on client ID as provided in the original data, which is assumed to align with devices used by individual contributors.
+
+The CorporaCreator tool is first run over the accent-labelled corpus after filtering out Indian and New Zealand utterances, to maximize the amount of data sampled for remaining accents.
+Additional Indian and New Zealand utterances are then added to the test set, making sure to exclude any examples with previously-occurring transcriptions.
+A separate, non-overlapping development set is also used where appropriate, e.g. to decide optimal LM weights and word insertion penalties before decoding test utterances.
+The development set is similar in size to the test set, but again without Indian and New Zealand utterances.
+
+Preprocessed and sampled metadata files available for download here: [common-voice-kaldi-metadata.tar.gz](https://uoe-my.sharepoint.com/:u:/g/personal/s1462938_ed_ac_uk/EZybat9KF0ZGtp-3V8ACoOYBps59eT9DoMhRvFgKlo7qYA?e=zaztx8)
 
 #### Train
 
@@ -35,26 +52,6 @@ All text is uppercased, cleaned of punctuation (except apostrophes in contractio
 | South Atlantic |   0.4 min |          7 |        1 |
 | Bermuda        |   0.4 min |          6 |        4 |
 | **TOTAL**      | 171.4 hrs |     115729 |     1523 |
-
-#### Dev
-
-| Accent         | Duration  | Utterances | Speakers |
-| :------------- | --------: | ---------: | -------: |
-| US             |  12.5 hrs |       8609 |      804 |
-| England        |   4.2 hrs |       2836 |      271 |
-| Australia      |   1.4 hrs |        974 |       86 |
-| Canada         |   1.2 hrs |        840 |       90 |
-| Scotland       |  23.5 min |        243 |       17 |
-| Ireland        |  20.8 min |        232 |       18 |
-| African        |  23.7 min |        247 |       30 |
-| Philippines    |  15.0 min |        177 |       14 |
-| Singapore      |  10.6 min |        119 |       10 |
-| Malaysia       |  15.7 min |        164 |       13 |
-| Wales          |   2.7 min |         28 |        3 |
-| Hong Kong      |   5.4 min |         57 |        5 |
-| South Atlantic |   0.0 min |          0 |        0 |
-| Bermuda        |   2.1 min |         22 |        3 |
-| **TOTAL**      |  21.4 hrs |      14548 |     1364 |
 
 #### Test
 
@@ -77,4 +74,14 @@ All text is uppercased, cleaned of punctuation (except apostrophes in contractio
 | _India_        |   3.1 hrs |       2003 |      624 |
 | _New Zealand_  |  10.9 min |        120 |       34 |
 | **TOTAL**      |  24.8 hrs |      16671 |     4000 |
+
+Note that CorporaCreator begins by sorting the input corpus by contributor frequency, so that speakers with the most utterances are listed first, and then partitions the data by slicing speaker-utterance blocks until the target number of utterances is met per partition.
+The train partition is created first, giving reduced speaker diversity compared to development and test sets.
+The test set is created last, thereby having the highest ratio of speakers to utterances.
+
+**TODO**:
+- [ ] Revise sampling procedure
+  - [ ] Increase speaker diversity during training
+  - [ ] Relax constraint on repeated transcriptions within partitions
+- [ ] Focus on well-represented accents
 
