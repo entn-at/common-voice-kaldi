@@ -86,3 +86,23 @@ if $remove_archive; then
   echo "$0: removing $filepath file since --remove-archive option was supplied."
   rm $filepath
 fi
+
+if [ -n $(which soxi) ]; then
+  for part in train dev test validated invalidated other; do
+    echo "$0: adding audio durations to metadata file $part..."
+    while read f; do 
+      soxi -D clips/$f >> ${part}_durs.txt 2>&1
+    done < <(cut -d'       ' -f2 ${part}.tsv)
+    if [ $(wc -l < ${part}.tsv) -eq $(wc -l < ${part}_durs.txt) ]; then
+      # bad audio files get 0 duration
+      paste ${part}.tsv - < <(awk 'NR == 1 && /FAIL/ { print "duration" } NR > 1 && /FAIL/ { print "0" } !/FAIL/ { print $1 }' ${part}_durs.txt) > tmp.tsv
+      mv tmp.tsv ${part}.tsv
+      rm ${part}_durs.txt
+    else
+      echo "$0: mismatched number of lines in ${part}.tsv and ${part}_durs.txt, not merging"
+    fi
+  done
+else
+  echo "$0: soxi not found, unable to add audio durations to metadata files."
+fi
+
